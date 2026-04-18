@@ -1,0 +1,12 @@
+# Python & UV
+.venv/
+__pycache__/
+*.py[cod]
+.python-version
+uv.lock
+
+# Environment & Credentials
+.env
+
+# Docker
+.docker/
