@@ -1,0 +1,68 @@
+services:
+  # MINIO:
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./data/minio_data:/data # Garante que os dados fiquem na pasta local
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # POSTGRES: Banco de dados do Airflow
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - ./data/postgres_data:/var/lib/postgresql/data # Garante que o Airflow não perca o histórico
+    healthcheck: # Pra o Airflow saber quando o banco acordou
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # AIRFLOW:
+  airflow:
+    build: . # Usa Dockerfile com uv e duckdb
+    container_name: airflow
+    # depende do postgres e minio pra ser acionado
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False # Pra não encher de DAGs de exemplo
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./.env:/opt/airflow/.env
+    command: standalone
+
+  # STREAMLIT:
+  streamlit:
+    build: .
+    container_name: streamlit
+    ports:
+      - "8501:8501"
+    depends_on:
+      - minio
+    volumes:
+      - ./app:/app
+    command: streamlit run /app/app.py 
+    

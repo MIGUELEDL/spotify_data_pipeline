@@ -7,6 +7,6 @@ uv.lock
 
 # Environment & Credentials
 .env
-
+data/
 # Docker
 .docker/
