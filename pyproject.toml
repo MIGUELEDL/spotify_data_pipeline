@@ -9,7 +9,9 @@ dependencies = [
     "boto3>=1.42.91",
     "dotenv>=0.9.9",
     "duckdb>=1.5.2",
+    "minio>=7.2.20",
     "pandas>=3.0.2",
+    "python-dotenv>=1.2.2",
     "requests>=2.33.1",
-    "spotify>=0.10.2",
+    "spotipy>=2.26.0",
 ]
