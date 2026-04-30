@@ -65,4 +65,10 @@ services:
     volumes:
       - ./app:/app
     command: streamlit run /app/app.py 
-    
+
+  # ignorar qualquer proxy instalado
+    app:
+    environment:
+      - NO_PROXY=*
+      - HTTP_PROXY=""
+      - HTTPS_PROXY=""

@@ -17,10 +17,10 @@ class MinioClient:
             endpoint,
             access_key=os.getenv("MINIO_ROOT_USER"),
             secret_key=os.getenv("MINIO_ROOT_PASSWORD"),
-            secure=False
+            secure=False,
         )
 
-    # função pra salvar arquivos dentro de buckets do minio
+    # função pra salvar arquivos json dentro de buckets do minio
     def upload_file(self, bucket_name, object_name, file_path):
         """Faz o upload de um arquivo para o bucket especificado."""
         try:

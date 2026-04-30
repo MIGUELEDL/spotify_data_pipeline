@@ -8,7 +8,7 @@ uv.lock
 # Environment & Credentials
 .env
 data/
-*.cache
+.cache*
 # Docker
 .docker/
 
