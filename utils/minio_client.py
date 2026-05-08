@@ -12,7 +12,9 @@ load_dotenv()
 class MinioClient:
     # faz a autenticação com o minio
     def __init__(self):
-        endpoint = os.getenv("MINIO_ENDPOINT").replace("http://", "").replace("/", "")
+        endpoint = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
+        endpoint = endpoint.replace("http://", "").replace("https://", "").replace("/", "")
+        
         self.client = Minio(
             endpoint,
             access_key=os.getenv("MINIO_ROOT_USER"),

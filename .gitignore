@@ -6,9 +6,9 @@ __pycache__/
 uv.lock
 
 # Environment & Credentials
+.env.local
 .env
 data/
 .cache*
 # Docker
 .docker/
-

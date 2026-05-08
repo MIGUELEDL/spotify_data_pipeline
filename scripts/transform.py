@@ -4,11 +4,12 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
+load_dotenv()
+
+os.environ["MINIO_ENDPOINT"] = "http://localhost:9000"
 # Garante que o Python encontre a pasta 'utils' na raiz do projeto
 sys.path.append(os.path.abspath(os.path.join('..')))
 from utils.minio_client import MinioClient
-
-load_dotenv() # carrega .env
 
 minio = MinioClient()
 bucket = os.getenv("BUCKET_NAME")

@@ -1,16 +1,62 @@
+version: '3.8'
+
+# Bloco compartilhado entre todos os serviços Airflow 
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.9.2}
+  environment: &airflow-common-env
+    # Banco de metadados do Airflow
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+
+    # Variáveis do projeto - disponíveis em todos os containers Airflow
+    PYTHONPATH: /opt/airflow
+    MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    BUCKET_NAME: ${BUCKET_NAME}
+    APP_CLIENT_ID: ${APP_CLIENT_ID}
+    APP_CLIENT_SECRET: ${APP_CLIENT_SECRET}
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: airflow
+    POSTGRES_USER: airflow
+    POSTGRES_PASSWORD: airflow
+
+  volumes:
+    # Pastas do projeto montadas dentro do container
+    - ${AIRFLOW_DAGS}:/opt/airflow/dags
+    - ${AIRFLOW_LOGS}:/opt/airflow/logs
+    - ./scripts:/opt/airflow/scripts
+    - ./utils:/opt/airflow/utils
+    - ./sql:/opt/airflow/sql
+    - ./data:/opt/airflow/data
+
+  user: "${AIRFLOW_UID:-50000}:0"
+
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+# ─────────────────────────────────────────────────────────────────────
+
 services:
-  # MINIO:
+
+  # MinIO 
   minio:
     image: minio/minio
     container_name: minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"   # API — usada pelos scripts
+      - "9001:9001"   # Console web — acessa pelo navegador
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - ./data/minio_data:/data # Garante que os dados fiquem na pasta local
+      - ./data/minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -18,57 +64,107 @@ services:
       timeout: 5s
       retries: 5
 
-  # POSTGRES: Banco de dados do Airflow
+  # Postgres 
+  
+  # Banco de metadados do Airflow (schemas internos dele) e Destino da camada Gold (schema gold.*)
   postgres:
     image: postgres:13
     container_name: postgres
+    ports:
+      - "5432:5432"
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - ./data/postgres_data:/var/lib/postgresql/data # Garante que o Airflow não perca o histórico
-    healthcheck: # Pra o Airflow saber quando o banco acordou
-      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      - ./data/postgres_data:/var/lib/postgresql/data
+      # Cria o schema gold automaticamente na primeira vez
+      - ./scripts/init_gold_schema.sql:/docker-entrypoint-initdb.d/01_gold.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # AIRFLOW:
-  airflow:
-    build: . # Usa Dockerfile com uv e duckdb
-    container_name: airflow
-    # depende do postgres e minio pra ser acionado
+  # Airflow Init 
+  # Roda uma única vez na primeira inicialização.
+  # Cria as tabelas internas do Airflow e o usuário admin.
+  # Depois para, não fica rodando como serviço.
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username ${_AIRFLOW_WWW_USER_USERNAME:-admin} \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD:-admin} \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@admin.com
+        echo "Airflow inicializado!"
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-admin}
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
-    environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False # Pra não encher de DAGs de exemplo
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
-      - ./.env:/opt/airflow/.env
-    command: standalone
 
-  # STREAMLIT:
+  # Airflow Webserver 
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Streamlit
   streamlit:
     build: .
     container_name: streamlit
     ports:
       - "8501:8501"
     depends_on:
-      - minio
-    volumes:
-      - ./app:/app
-    command: streamlit run /app/app.py 
-
-  # ignorar qualquer proxy instalado
-    app:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      - NO_PROXY=*
-      - HTTP_PROXY=""
-      - HTTPS_PROXY=""
+      PYTHONPATH: /app
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - ./app:/app/app
+      - ./utils:/app/utils
+    command: python -m streamlit run /app/app/app.py --server.address=0.0.0.0 --server.port=8501
+
+volumes:
+  airflow_logs:

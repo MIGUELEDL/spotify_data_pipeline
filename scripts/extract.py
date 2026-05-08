@@ -4,13 +4,14 @@ import os
 import sys
 from datetime import datetime
 from dotenv import load_dotenv
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials
 
+load_dotenv()
+
+os.environ["MINIO_ENDPOINT"] = "http://localhost:9000"
 # Garante que o Python encontre a pasta 'utils' na raiz do projeto
 sys.path.append(os.path.abspath(os.path.join('..')))
 from utils.minio_client import MinioClient
-
-load_dotenv()
 
 # autenticação com a api
 client_credentials_manager = spotipy.oauth2.SpotifyClientCredentials(
@@ -67,13 +68,15 @@ for album in albums_g3:
             break
 
         for track in tracks_in_album:
+            # guardar o ID do álbum pai de cada track
             track['album_id'] = album_id
             tracks_g3.append(track)
 
+        # se o resultado atual for menor que o limite encerra o loop
         if len(track_g3) < limit:
             break
 
-        offset += limit
+        offset += limit # itera sempre que chegar o limite de busca da api (50), itera pra buscar mais 50 até resgatar tudo
 
 print(f"Total de músicas encontradas: {len(tracks_g3)}")
 
