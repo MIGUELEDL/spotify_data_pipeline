@@ -1,28 +1,36 @@
 import os
 import sys
-import logging
+import duckdb
 from datetime import datetime
-from pathlib import Path
-
-import duckdb                        
+from pathlib import Path                        
 from dotenv import load_dotenv
 
-sys.path.append(str(Path(__file__).parent.parent))
+load_dotenv()
+
+# Detecta se está rodando dentro do Docker ou local
+if os.path.exists("/opt/airflow"):
+    BASE_DIR = "/opt/airflow"
+    sys.path.append(BASE_DIR)
+else:
+    BASE_DIR = os.path.abspath(os.path.join('..'))
+    sys.path.append(BASE_DIR)
+
+# Importa minio client (autenticação)
 from utils.minio_client import MinioClient
+
+# Importa postgrees client (autenticação)
+os.environ["POSTGRES_HOST"] = os.getenv("POSTGRES_HOST")
+os.environ["POSTGRES_PORT"] = os.getenv("POSTGRES_PORT")
+
 from utils.postgres_client import PostgresClient
 
-load_dotenv()
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-)
-logger = logging.getLogger("gold.load")
+#________________________________________________________________________________
 
-BUCKET  = os.getenv("BUCKET_NAME", "spotify-data")
-SQL_DIR = Path(__file__).parent.parent / "sql" / "gold"
+BUCKET  = os.getenv("BUCKET_NAME")
+SQL_PATH = os.path.join('..', 'sql', 'gold')
 SCHEMA  = "gold"
 
-# Cada entrada vira uma tabela no Postgres: golds
+# Cada entrada vira uma tabela no Postgres: gold.<chave>
 GOLD_TABLES = {
     "albums_enriched":      "gold_albums_enriched.sql",
     "tracks_enriched":      "gold_tracks_enriched.sql",
@@ -30,21 +38,24 @@ GOLD_TABLES = {
     "evolucao_por_decada":  "gold_evolucao_por_decada.sql",
 }
 
+#________________________________________________________________________________
 
-# ── Helpers ──────────────────────────────────────────────────────────
+# Helpers
 
 def _ler_sql(filename: str) -> str:
     """Lê um arquivo .sql do disco e retorna o conteúdo como string."""
-    path = SQL_DIR / filename
-    if not path.exists():
+    path = os.path.join(SQL_PATH, filename)
+    if not os.path.exists(path):
         raise FileNotFoundError(f"SQL não encontrado: {path}")
-    return path.read_text(encoding="utf-8")
-
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
 
 def _carregar_silver(minio: MinioClient, con: duckdb.DuckDBPyConnection) -> None:
     """
+    Puxa os Parquet mais recentes da Silver e registra como views no DuckDB.
+
     get_ultimo_arquivo com formato='parquet' já retorna DataFrame — sem
-    conversão extra, o MinioClient cuida disso.
+    conversão extra.
     """
     sources = {
         "silver_albums": "silver/albums_g3",
@@ -52,7 +63,6 @@ def _carregar_silver(minio: MinioClient, con: duckdb.DuckDBPyConnection) -> None
     }
 
     for view_name, prefix in sources.items():
-        logger.info("Silver: %s/%s", BUCKET, prefix)
 
         df = minio.get_ultimo_arquivo(BUCKET, prefix, formato="parquet")
 
@@ -62,13 +72,8 @@ def _carregar_silver(minio: MinioClient, con: duckdb.DuckDBPyConnection) -> None
                 "Rode a Silver antes da Gold."
             )
 
-        # Aqui está a mágica: o DuckDB recebe um DataFrame pandas
-        # e o expõe como view SQL com o nome que você escolher.
+        # DuckDB recebe um DataFrame pandas e o expõe como view SQL.
         con.register(view_name, df)
-
-        logger.info(" View '%s': %d linhas × %d colunas",
-                    view_name, len(df), len(df.columns))
-
 
 def _processar_tabela(
     con: duckdb.DuckDBPyConnection,
@@ -76,37 +81,30 @@ def _processar_tabela(
     table: str,
     sql_file: str,
 ) -> int:
-    """
-    Executa um SQL no DuckDB e salva o resultado no Postgres.
+    #Executa um SQL no DuckDB e salva o resultado no Postgres.
 
-    Passo a passo:
-      1. Lê o arquivo .sql como string
-      2. con.execute(sql) → roda o SQL sobre as views registradas
-      3. .df()           → converte o resultado em DataFrame pandas
-      4. pg.write_dataframe() → salva no Postgres com if_exists='replace'
-         (recria a tabela inteira a cada run — correto pra batch diário)
-    """
-    logger.info("Processando: gold.%s", table)
-
+    #Lê o arquivo .sql como string e converte o resultado em DataFrame
     sql = _ler_sql(sql_file)
-    df  = con.execute(sql).df()       # .df() = DuckDB Result → pandas DataFrame
+    df  = con.execute(sql).df() # .df() = DuckDB Result -> pandas DataFrame
+    df  = df.convert_dtypes() # converte tipos
 
-    logger.info("%d linhas geradas", len(df))
+    # Remove horário de colunas de data
+    for col in df.select_dtypes(include=["datetime64"]).columns:
+        df[col] = df[col].dt.strftime("%Y-%m-%d")
+
+    # salva no Postgres com if_exists='replace'
     pg.write_dataframe(df, table=table, schema=SCHEMA, if_exists="replace")
     return len(df)
 
-# ── Entrypoint ───────────────────────────────────────────────────────
+#________________________________________________________________________________
 
+# Entrypoint
 def run_gold_pipeline() -> dict:
     """
     Executa o pipeline Gold completo.
     Retorna {nome_tabela: linhas} para o XCom do Airflow.
     """
     start = datetime.now()
-    logger.info("=" * 55)
-    logger.info("GOLD — %s", start.strftime("%Y-%m-%d %H:%M:%S"))
-    logger.info("=" * 55)
-
     minio = MinioClient()
     pg    = PostgresClient()
 
@@ -115,9 +113,6 @@ def run_gold_pipeline() -> dict:
     pg.create_schema_if_not_exists(SCHEMA)
 
     # Abre uma conexão DuckDB in-memory.
-    # Tudo que acontece aqui vive só na memória RAM — nenhum arquivo
-    # .duckdb é criado em disco. É intencional: queremos uma engine
-    # de transformação limpa a cada execução.
     con = duckdb.connect(":memory:")
 
     try:
@@ -130,18 +125,18 @@ def run_gold_pipeline() -> dict:
             stats[table] = _processar_tabela(con, pg, table, sql_file)
 
         elapsed = (datetime.now() - start).total_seconds()
-        logger.info("=" * 55)
-        logger.info("GOLD concluído em %.1fs", elapsed)
+            
+        print("=" * 55)
         for t, n in stats.items():
-            logger.info("gold.%-30s %d linhas", t, n)
-        logger.info("=" * 55)
+            print(f"gold.{t}: {n} linhas")
+        print(f"Gold concluído em {elapsed:.1f}s")
+        print("=" * 55)
 
         return stats
 
     finally:
         # Fecha a conexão DuckDB — as views somem, memória liberada
         con.close()
-
 
 if __name__ == "__main__":
     run_gold_pipeline()

@@ -12,6 +12,9 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
 
+    # Pacotes instalados automaticamente no container
+    _PIP_ADDITIONAL_REQUIREMENTS: "spotipy duckdb psycopg2-binary minio pandas pyarrow python-dotenv"
+
     # Variáveis do projeto - disponíveis em todos os containers Airflow
     PYTHONPATH: /opt/airflow
     MINIO_ENDPOINT: ${MINIO_ENDPOINT}

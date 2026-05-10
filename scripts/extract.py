@@ -17,7 +17,11 @@ from utils.minio_client import MinioClient
 client_credentials_manager = spotipy.oauth2.SpotifyClientCredentials(
     client_id= os.getenv("APP_CLIENT_ID"),
     client_secret= os.getenv("APP_CLIENT_SECRET"))
-sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+sp = spotipy.Spotify(
+    client_credentials_manager=client_credentials_manager,
+    requests_timeout=30,
+    retries=3,
+)
 
 # ____________________________________________________________________________________________________
 
@@ -84,8 +88,15 @@ print(f"Total de músicas encontradas: {len(tracks_g3)}")
 
 minio = MinioClient()
 bucket = os.getenv("BUCKET_NAME")
-base_path = "../data/raw"
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# Se estiver dentro do Docker usa o caminho absoluto
+# Se estiver no notebook usa o caminho relativo
+#BASE__PATH:
+if os.path.exists("/opt/airflow"):
+    base_path = "/opt/airflow/data/raw"
+else:
+    base_path = "../data/raw"
 
 # Dicionario com chave e valor dos dados extraídos
 dados_para_salvar = {
