@@ -23,7 +23,16 @@ git clone https://github.com/MIGUELEDL/spotify_data_pipeline.git
 cd spotify_data_pipeline
 ```
 
-### 2. Configure as variáveis de ambiente
+### 2. Crie a estrutura de pastas locais
+
+Essas pastas são geradas em runtime e não estão no repositório (estão no `.gitignore`).
+Crie-as manualmente antes de subir os serviços:
+
+```bash
+mkdir -p data/airflow_logs data/minio_data data/postgres_data data/raw/albums_g3 data/raw/tracks_g3
+```
+
+### 3. Configure as variáveis de ambiente
 
 Crie um arquivo `.env` na raiz do projeto com suas credenciais:
 
@@ -57,24 +66,24 @@ POSTGRES_PASSWORD=sua_senha
 POSTGRES_DB=airflow
 ```
 
-### 3. Suba os serviços com Docker
+### 4. Suba os serviços com Docker
 
 ```bash
 docker-compose up -d
 ```
 
-### 4. Acesse as interfaces
+### 5. Acesse as interfaces
 
 | Serviço | URL | Credenciais padrão |
 |---|---|---|
 | Airflow | http://localhost:8080 | airflow / airflow |
 | MinIO | http://localhost:9001 | minioadmin / minioadmin |
 
-### 5. Ative a DAG no Airflow
+### 6. Ative a DAG no Airflow
 
 Acesse o Airflow, localize a DAG "spotify_data_pipeline" e ative-a para iniciar o processo ETL.
 
-### 6. Visualizar os dados
+### 7. Visualizar os dados
 
 Para validar o sucesso do pipeline e realizar consultas analíticas:
 
