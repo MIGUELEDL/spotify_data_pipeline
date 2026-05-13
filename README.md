@@ -25,11 +25,17 @@ cd spotify_data_pipeline
 
 ### 2. Crie a estrutura de pastas locais
 
-Essas pastas são geradas em runtime e não estão no repositório (estão no `.gitignore`).
-Crie-as manualmente antes de subir os serviços:
+Essas pastas são geradas em runtime e não estão no repositório (`.gitignore`).
+Crie-as antes de subir os serviços:
 
+**Linux/macOS:**
 ```bash
 mkdir -p data/airflow_logs data/minio_data data/postgres_data data/raw/albums_g3 data/raw/tracks_g3
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force -Path data/airflow_logs, data/minio_data, data/postgres_data, data/raw/albums_g3, data/raw/tracks_g3
 ```
 
 ### 3. Configure as variáveis de ambiente
