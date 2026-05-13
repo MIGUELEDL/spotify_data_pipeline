@@ -1,3 +1,5 @@
+<img width="1536" height="1024" alt="spotify_data_pipeline_img" src="https://github.com/user-attachments/assets/5c4ec154-f3a5-4e63-b576-926275d7929e" />
+
 Pipeline de dados completo que extrai informações da API do Spotify sobre a banda **Oficina G3**, processa e armazena os dados em um datalake local, transforma em arquivos Parquet e carrega em um banco de dados PostgreSQL — tudo orquestrado com Airflow e rodando localmente via Docker.
 
 > 💡 Quer testar com outro artista? Basta substituir o `g3_uri = "0gO5Vbklho8yrBrUdHhuLH"` no extract.py pela URI do artista ou banda que você quiser buscar no Spotify.
