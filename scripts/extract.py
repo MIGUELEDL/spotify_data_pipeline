@@ -8,7 +8,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 
 load_dotenv()
 
-os.environ["MINIO_ENDPOINT"] = "http://localhost:9000"
+os.environ["MINIO_ENDPOINT"] = "http://minio:9000"
 # Garante que o Python encontre a pasta 'utils' na raiz do projeto
 sys.path.append(os.path.abspath(os.path.join('..')))
 from utils.minio_client import MinioClient
