@@ -39,7 +39,7 @@ class PostgresClient:
                 # Define o tipo SQL de cada coluna com base no dtype do DataFrame
                 tipos = {"int": "BIGINT", "float": "FLOAT", "bool": "BOOLEAN"}
                 colunas = [
-                    f'"{col}" {next((t for k, t in tipos.items() if k in str(dtype)), "TEXT")}'
+                    f'"{col}" {next((t for k, t in tipos.items() if k in str(dtype).lower()), "TEXT")}'
                     for col, dtype in df.dtypes.items()
                 ]
 

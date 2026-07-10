@@ -158,7 +158,7 @@ services:
     env_file:
       - .env
     environment:
-      PYTHONPATH: /app
+      PYTHONPATH: /app/app
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       POSTGRES_DB: airflow
@@ -166,7 +166,9 @@ services:
       POSTGRES_PASSWORD: airflow
     volumes:
       - ./app:/app/app
-      - ./utils:/app/utils
+      # Montado como "shared" (e não "utils") pra não colidir com a pasta
+      # app/utils/ (que guarda o código próprio do app, tipo cache de queries).
+      - ./utils:/app/app/shared
     command: python -m streamlit run /app/app/app.py --server.address=0.0.0.0 --server.port=8501
 
 volumes:
