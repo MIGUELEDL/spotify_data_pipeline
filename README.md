@@ -1,10 +1,16 @@
-<img width="1536" height="1024" alt="spotify_data_pipeline_img" src="https://github.com/user-attachments/assets/5c4ec154-f3a5-4e63-b576-926275d7929e" />
+<img width="1536" height="1024" alt="spotify_data_pipeline_img" src="assets/spotify_data_pipeline_img.png" />
 
-Pipeline de dados completo que extrai informações da API do Spotify sobre a banda **Oficina G3**, processa e armazena os dados em um datalake local, transforma em arquivos Parquet e carrega em um banco de dados PostgreSQL — tudo orquestrado com Airflow e rodando localmente via Docker.
+Pipeline de dados completo que extrai informações da API do Spotify sobre a banda **Oficina G3**, processa e armazena os dados em um datalake local, transforma em arquivos Parquet e carrega em um banco de dados PostgreSQL — tudo orquestrado com Airflow e rodando localmente via Docker. Os dados enriquecidos são explorados através de um **dashboard interativo em Streamlit**.
 
 > 💡 Quer testar com outro artista? Basta substituir o `g3_uri = "0gO5Vbklho8yrBrUdHhuLH"` no extract.py pela URI do artista ou banda que você quiser buscar no Spotify.
 
 Este é um projeto de estudo desenvolvido com o objetivo de aprender na prática, construindo um pipeline ETL real do zero. A ideia do projeto foi buscar dados da API do Spotify, passar por todas as camadas de um pipeline moderno - da extração bruta até o dado enriquecido e pronto para consulta, entender como cada ferramenta funciona dentro desse processo, tentando fazer tudo com o minimo de ajuda de IA possivel, apenas em momentos em que não enxerguei outra saida.
+
+---
+
+## App streamlit
+
+![Dashboard gif](assets/spotify_data_pipeline_app.gif)
 
 ---
 
@@ -13,7 +19,7 @@ Este é um projeto de estudo desenvolvido com o objetivo de aprender na prática
 ### Pré-requisitos
 
 - [Docker](https://www.docker.com/) instalado
-- [DBeaver](https://dbeaver.io/download/) instalado (opcional)
+- [DBeaver](https://dbeaver.io/download/) instalado (opcional, útil para explorar o banco além do dashboard)
 - Credenciais da [API do Spotify](https://developer.spotify.com/dashboard) (Client ID e Client Secret)
 
 ### 1. Clone o repositório
@@ -84,20 +90,23 @@ docker-compose up -d
 |---|---|---|
 | Airflow | http://localhost:8080 | airflow / airflow |
 | MinIO | http://localhost:9001 | minioadmin / minioadmin |
+| **Dashboard (Streamlit)** | **http://localhost:8501** | — |
 
 ### 6. Ative a DAG no Airflow
 
 Acesse o Airflow, localize a DAG "spotify_data_pipeline" e ative-a para iniciar o processo ETL.
 
-### 7. Visualizar os dados
+### 7. Explore os dados no Dashboard
 
-Para validar o sucesso do pipeline e realizar consultas analíticas:
+Com a DAG concluída, acesse **http://localhost:8501** para o dashboard interativo, construído em Streamlit sobre a camada `gold` do PostgreSQL. Ele traz:
 
-Abra o DBeaver e crie uma nova conexão PostgreSQL.
-Utilize as credenciais configuradas no seu .env (Host: localhost, Porta: 5432).
-Navegue até: Banco de dados > airflow > esquemas > gold > tabelas.
+- **Visão Geral** — KPIs da discografia, linha do tempo de lançamentos e destaques
+- **Álbuns** — galeria de capas, filtro por década e detalhe de faixas por álbum
+- **Faixas** — busca, filtros e distribuição de duração de todas as músicas
+- **Rankings** — pódio e tabela com os álbuns mais longos, com mais faixas etc.
+- **Evolução** — como a duração das faixas e o volume de lançamentos mudaram ao longo dos anos
 
-Aqui você encontrará as tabelas enriquecidas e prontas para análise, como gold_albums_enriched e gold_tracks_enriched. 
+Se preferir consultar o banco diretamente (ex: pra explorar queries SQL na mão), o DBeaver continua funcionando normalmente: crie uma conexão PostgreSQL com as credenciais do `.env` (Host: `localhost`, Porta: `5432`) e navegue até `airflow > esquemas > gold > tabelas`.
 
 ---
 
@@ -110,6 +119,7 @@ Aqui você encontrará as tabelas enriquecidas e prontas para análise, como gol
 | **Apache Airflow** | Orquestração e agendamento das DAGs |
 | **MinIO** | Data Lake local (armazenamento de JSONs e Parquets) |
 | **PostgreSQL** | Banco de dados para carga final dos dados |
+| **Streamlit** | Dashboard interativo de visualização da camada gold |
 | **Docker / Docker Compose** | Containerização de toda a infraestrutura |
 | **SQL** | Enriquecimento e modelagem dos dados |
 
@@ -120,9 +130,10 @@ Aqui você encontrará as tabelas enriquecidas e prontas para análise, como gol
 ```
 spotify_data_pipeline/
 │
-├── app/                          # em desenvolvimento...
-│   ├── utils/                    # em desenvolvimento...
-│   └── app.py                    # em desenvolvimento...
+├── app/                          # Dashboard Streamlit
+│   ├── pages/                    # Páginas do dashboard (Álbuns, Faixas, Rankings, Evolução)
+│   ├── utils/                    # Cache de queries (db.py) e estilo/formatação (style.py)
+│   └── app.py                    # Página inicial (Visão Geral)
 │
 ├── dags/
 │   └── spotify_dag_pipeline.py   # DAG principal do Airflow
@@ -175,6 +186,7 @@ Algumas das habilidades praticadas:
 - Persistência em formato Parquet para otimização de leitura
 - Modelagem e carga de dados em PostgreSQL
 - Criação e orquestração de DAGs no Apache Airflow
+- Construção de um dashboard interativo com Streamlit
 - Containerização de toda a infraestrutura com Docker
 
 ---
