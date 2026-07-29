@@ -201,7 +201,7 @@ No Airflow:
 
 Acesse o Airflow, localize a DAG "spotify_data_pipeline" e ative-a para iniciar o processo ETL.
 
-## 12. Verifique os dados
+### 12. Verifique os dados
 
 ### MinIO
 
@@ -225,7 +225,7 @@ gold.evolucao_por_decada
 
 ---
 
-## 13. Abra o Dashboard
+### 13. Abra o Dashboard
 
 Acesse:
 
@@ -235,13 +235,13 @@ http://localhost:8501
 
 O dashboard exibirá automaticamente os dados processados da camada Gold.
 
-# 🔄 Executar novamente o pipeline
+### 🔄 Executar novamente o pipeline
 
 Sempre que desejar atualizar os dados basta executar novamente a DAG no Airflow.
 
 Os novos arquivos serão gravados na Bronze e Silver, e as tabelas da camada Gold serão atualizadas automaticamente.
 
-# ⚠️ Problemas comuns
+### ⚠️ Problemas comuns
 
 ### O bucket não existe
 
