@@ -27,7 +27,8 @@ from utils.postgres_client import PostgresClient
 #________________________________________________________________________________
 
 BUCKET  = os.getenv("BUCKET_NAME")
-SQL_PATH = os.path.join('..', 'sql', 'gold')
+BASE_DIR = Path(__file__).resolve().parent.parent
+SQL_PATH = BASE_DIR / "sql" / "gold"
 SCHEMA  = "gold"
 
 # Cada entrada vira uma tabela no Postgres: gold.<chave>
@@ -43,12 +44,14 @@ GOLD_TABLES = {
 # Helpers
 
 def _ler_sql(filename: str) -> str:
-    """Lê um arquivo .sql do disco e retorna o conteúdo como string."""
-    path = os.path.join(SQL_PATH, filename)
-    if not os.path.exists(path):
+    path = SQL_PATH / filename
+
+    print(f"Lendo SQL: {path}")
+
+    if not path.exists():
         raise FileNotFoundError(f"SQL não encontrado: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+
+    return path.read_text(encoding="utf-8")
 
 def _carregar_silver(minio: MinioClient, con: duckdb.DuckDBPyConnection) -> None:
     """
@@ -138,5 +141,4 @@ def run_gold_pipeline() -> dict:
         # Fecha a conexão DuckDB — as views somem, memória liberada
         con.close()
 
-if __name__ == "__main__":
-    run_gold_pipeline()
+run_gold_pipeline()

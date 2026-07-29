@@ -29,7 +29,45 @@ git clone https://github.com/MIGUELEDL/spotify_data_pipeline.git
 cd spotify_data_pipeline
 ```
 
-### 2. Crie a estrutura de pastas locais
+### 2. Instale o UV
+
+O projeto utiliza **UV** como gerenciador de dependências.
+
+### Windows
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### Linux / macOS
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Verifique a instalação:
+
+```bash
+uv --version
+```
+
+### 3. Instale todas as dependências do projeto
+
+Dentro da pasta do projeto execute:
+
+```bash
+uv sync
+```
+
+ou, caso utilize o arquivo `uv.lock`:
+
+```bash
+uv sync --frozen
+```
+
+Esse comando instalará automaticamente todas as bibliotecas necessárias para executar o projeto localmente.
+
+### 4. Crie a estrutura de pastas locais
 
 Essas pastas são geradas em runtime e não estão no repositório (`.gitignore`).
 Crie-as antes de subir os serviços:
@@ -44,69 +82,210 @@ mkdir -p data/airflow_logs data/minio_data data/postgres_data data/raw/albums_g3
 New-Item -ItemType Directory -Force -Path data/airflow_logs, data/minio_data, data/postgres_data, data/raw/albums_g3, data/raw/tracks_g3
 ```
 
-### 3. Configure as variáveis de ambiente
+### 5. Configure as variáveis de ambiente
 
-Crie um arquivo `.env` na raiz do projeto com suas credenciais:
+Crie um arquivo `.env` na raiz do projeto e configure as variáveis abaixo de acordo com o seu ambiente.
 
 ```env
-# AIRFLOW
+
+# APACHE AIRFLOW
 AIRFLOW_IMAGE_NAME=apache/airflow:2.9.2
 AIRFLOW_UID=50000
-_AIRFLOW_WWW_USER_USERNAME=seu_usuario
-_AIRFLOW_WWW_USER_PASSWORD=sua_senha
+_AIRFLOW_WWW_USER_USERNAME=admin
+_AIRFLOW_WWW_USER_PASSWORD=admin
 
-# Pastas locais montadas no container
+# Diretórios locais montados nos containers do Airflow
 AIRFLOW_DAGS=./dags
 AIRFLOW_LOGS=./data/airflow_logs
 AIRFLOW_PLUGINS=./plugins
 
 # MINIO
 MINIO_ENDPOINT=http://minio:9000
-MINIO_ROOT_USER=seu_usuario
-MINIO_ROOT_PASSWORD=sua_senha
+MINIO_ROOT_USER=admin
+MINIO_ROOT_PASSWORD=admin123
 BUCKET_NAME=spotify-data-pipeline
 
-# API SPOTIFY
-APP_CLIENT_ID=seu_client_id_aqui
-APP_CLIENT_SECRET=seu_client_secret_aqui
+# SPOTIFY API
+APP_CLIENT_ID=SEU_CLIENT_ID
+APP_CLIENT_SECRET=SEU_CLIENT_SECRET
 
-# POSTGRES
+# POSTGRESQL
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
-POSTGRES_USER=seu_usuario
-POSTGRES_PASSWORD=sua_senha
+POSTGRES_USER=airflow
+POSTGRES_PASSWORD=airflow
 POSTGRES_DB=airflow
 ```
 
-### 4. Suba os serviços com Docker
+> **Observações importantes**
+>
+> - Substitua `SEU_CLIENT_ID` e `SEU_CLIENT_SECRET` pelas credenciais obtidas no **Spotify Developer Dashboard**.
+> - O nome do bucket (`spotify-data-pipeline`) deve ser exatamente igual ao definido na variável `BUCKET_NAME`.
+> - Caso altere o usuário ou a senha do MinIO ou do PostgreSQL, atualize os mesmos valores no arquivo `.env` antes de iniciar os containers.
+> - O usuário e a senha do Airflow (`admin`/`admin`) podem ser alterados conforme sua preferência.
+
+### 6. Suba os serviços com Docker
 
 ```bash
-docker-compose up -d
+docker compose up --build -d
 ```
 
-### 5. Acesse as interfaces
+Esse comando irá iniciar automaticamente:
 
-| Serviço | URL | Credenciais padrão |
-|---|---|---|
-| Airflow | http://localhost:8080 | airflow / airflow |
-| MinIO | http://localhost:9001 | minioadmin / minioadmin |
-| **Dashboard (Streamlit)** | **http://localhost:8501** | — |
+- PostgreSQL
+- MinIO
+- Apache Airflow
+- Streamlit
 
-### 6. Ative a DAG no Airflow
+Verifique se todos os containers estão em execução:
+
+```bash
+docker compose ps
+```
+
+### 7. Acesse o MinIO
+
+Abra:
+
+```
+http://localhost:9001
+```
+
+Login:
+
+```
+Usuário: admin
+Senha: admin123
+```
+
+(ou os valores definidos no seu `.env`)
+
+### 8. Crie o bucket
+
+Crie manualmente um bucket chamado:
+
+```
+spotify-data-pipeline
+```
+
+esse nome deve ser exatamente o mesmo definido na variável:
+
+```env
+BUCKET_NAME=spotify-data-pipeline
+```
+
+### 9. Acesse o Airflow
+
+Abra:
+
+```
+http://localhost:8080
+```
+
+Login padrão:
+
+```
+Usuário: admin
+Senha: admin
+```
+
+### 10. Execute a DAG
+
+No Airflow:
+
+1. Ative a DAG **spotify_data_pipeline**;
+2. Clique em **Trigger DAG**;
+3. Aguarde a conclusão do pipeline.
+
+### 11. Ative a DAG no Airflow
 
 Acesse o Airflow, localize a DAG "spotify_data_pipeline" e ative-a para iniciar o processo ETL.
 
-### 7. Explore os dados no Dashboard
+## 12. Verifique os dados
 
-Com a DAG concluída, acesse **http://localhost:8501** para o dashboard interativo, construído em Streamlit sobre a camada `gold` do PostgreSQL. Ele traz:
+### MinIO
 
-- **Visão Geral** — KPIs da discografia, linha do tempo de lançamentos e destaques
-- **Álbuns** — galeria de capas, filtro por década e detalhe de faixas por álbum
-- **Faixas** — busca, filtros e distribuição de duração de todas as músicas
-- **Rankings** — pódio e tabela com os álbuns mais longos, com mais faixas etc.
-- **Evolução** — como a duração das faixas e o volume de lançamentos mudaram ao longo dos anos
+Após a execução da DAG deverão existir as seguintes camadas:
 
-Se preferir consultar o banco diretamente (ex: pra explorar queries SQL na mão), o DBeaver continua funcionando normalmente: crie uma conexão PostgreSQL com as credenciais do `.env` (Host: `localhost`, Porta: `5432`) e navegue até `airflow > esquemas > gold > tabelas`.
+```
+bronze/
+silver/
+```
+
+### PostgreSQL
+
+No schema **gold** serão criadas automaticamente as tabelas:
+
+```
+gold.albums_enriched
+gold.tracks_enriched
+gold.discografia_summary
+gold.evolucao_por_decada
+```
+
+---
+
+## 13. Abra o Dashboard
+
+Acesse:
+
+```
+http://localhost:8501
+```
+
+O dashboard exibirá automaticamente os dados processados da camada Gold.
+
+# 🔄 Executar novamente o pipeline
+
+Sempre que desejar atualizar os dados basta executar novamente a DAG no Airflow.
+
+Os novos arquivos serão gravados na Bronze e Silver, e as tabelas da camada Gold serão atualizadas automaticamente.
+
+# ⚠️ Problemas comuns
+
+### O bucket não existe
+
+Crie manualmente o bucket:
+
+```
+spotify-data-pipeline
+```
+
+### A DAG não aparece
+
+Reinicie os containers do Airflow:
+
+```bash
+docker compose restart airflow-webserver airflow-scheduler
+```
+
+### O Streamlit não abre
+
+Verifique os logs:
+
+```bash
+docker logs streamlit
+```
+
+Caso necessário:
+
+```bash
+docker compose restart streamlit
+```
+
+### Algum container não iniciou
+
+Verifique:
+
+```bash
+docker compose ps
+```
+
+e os logs:
+
+```bash
+docker compose logs
+```
 
 ---
 

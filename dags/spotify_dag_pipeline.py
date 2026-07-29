@@ -23,9 +23,13 @@ def transform():
 
 def load():
     print("salvando dados...")
-    spec = importlib.util.spec_from_file_location("load", "/opt/airflow/scripts/load.py")
-    mod  = importlib.util.module_from_spec(spec)
+    spec = importlib.util.spec_from_file_location(
+        "load",
+        "/opt/airflow/scripts/load.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    mod.run_gold_pipeline()
 
 def falha(context):
     print(f"FALHOU: {context['task_instance'].task_id}")
