@@ -72,14 +72,19 @@ Esse comando instalará automaticamente todas as bibliotecas necessárias para e
 Essas pastas são geradas em runtime e não estão no repositório (`.gitignore`).
 Crie-as antes de subir os serviços:
 
-**Linux/macOS:**
+### Linux / macOS
+
 ```bash
-mkdir -p data/airflow_logs data/minio_data data/postgres_data data/raw/albums_g3 data/raw/tracks_g3
+mkdir -p data/minio_data \
+         data/postgres_data \
 ```
 
-**Windows (PowerShell):**
+### Windows (PowerShell)
+
 ```powershell
-New-Item -ItemType Directory -Force -Path data/airflow_logs, data/minio_data, data/postgres_data, data/raw/albums_g3, data/raw/tracks_g3
+New-Item -ItemType Directory -Force -Path `
+data/minio_data, `
+data/postgres_data,
 ```
 
 ### 5. Configure as variáveis de ambiente
@@ -123,6 +128,7 @@ POSTGRES_DB=airflow
 > - O nome do bucket (`spotify-data-pipeline`) deve ser exatamente igual ao definido na variável `BUCKET_NAME`.
 > - Caso altere o usuário ou a senha do MinIO ou do PostgreSQL, atualize os mesmos valores no arquivo `.env` antes de iniciar os containers.
 > - O usuário e a senha do Airflow (`admin`/`admin`) podem ser alterados conforme sua preferência.
+> - Os logs do Apache Airflow são armazenados automaticamente em um volume Docker (airflow_logs). Isso evita problemas de permissões entre Windows, Linux e macOS, dispensando a criação manual da pasta de logs.
 
 ### 6. Suba os serviços com Docker
 
@@ -143,38 +149,7 @@ Verifique se todos os containers estão em execução:
 docker compose ps
 ```
 
-### 7. Acesse o MinIO
-
-Abra:
-
-```
-http://localhost:9001
-```
-
-Login:
-
-```
-Usuário: admin
-Senha: admin123
-```
-
-(ou os valores definidos no seu `.env`)
-
-### 8. Crie o bucket
-
-Crie manualmente um bucket chamado:
-
-```
-spotify-data-pipeline
-```
-
-esse nome deve ser exatamente o mesmo definido na variável:
-
-```env
-BUCKET_NAME=spotify-data-pipeline
-```
-
-### 9. Acesse o Airflow
+### 7. Acesse o Airflow
 
 Abra:
 
@@ -189,7 +164,9 @@ Usuário: admin
 Senha: admin
 ```
 
-### 10. Execute a DAG
+### 8. Execute o pipeline
+
+#### Execute a DAG
 
 No Airflow:
 
@@ -197,11 +174,7 @@ No Airflow:
 2. Clique em **Trigger DAG**;
 3. Aguarde a conclusão do pipeline.
 
-### 11. Ative a DAG no Airflow
-
-Acesse o Airflow, localize a DAG "spotify_data_pipeline" e ative-a para iniciar o processo ETL.
-
-### 12. Verifique os dados
+### 9. Verifique os dados
 
 ### MinIO
 
@@ -211,21 +184,9 @@ Após a execução da DAG deverão existir as seguintes camadas:
 bronze/
 silver/
 ```
-
-### PostgreSQL
-
-No schema **gold** serão criadas automaticamente as tabelas:
-
-```
-gold.albums_enriched
-gold.tracks_enriched
-gold.discografia_summary
-gold.evolucao_por_decada
-```
-
 ---
 
-### 13. Abra o Dashboard
+### 10. Abra o Dashboard
 
 Acesse:
 
@@ -318,10 +279,8 @@ spotify_data_pipeline/
 │   └── spotify_dag_pipeline.py   # DAG principal do Airflow
 │
 ├── data/                         # Dados gerados localmente (gitignore)
-│   ├── airflow_logs/             # Logs do Airflow
 │   ├── minio_data/               # Dados persistidos do MinIO
 │   ├── postgres_data/            # Dados persistidos do PostgreSQL
-│   └── raw/                      # JSONs brutos extraídos da API
 │
 ├── scripts/                       # Core da lógica ETL e Notebooks de teste
 │   ├── extract.py / .ipynb        # Extração da API Spotify -> JSON

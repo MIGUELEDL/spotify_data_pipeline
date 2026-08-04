@@ -2,6 +2,7 @@ import os
 import json
 import pandas as pd
 import pyarrow as pa
+from io import BytesIO
 import pyarrow.parquet as pq
 from minio import Minio
 from io import BytesIO
@@ -36,7 +37,40 @@ class MinioClient:
         except Exception as e:
             print(f"Erro no upload para o MinIO: {e}")
             return False
+
+    #_____________________________________________________________________________________________________________#
     
+        # função para salvar um JSON diretamente no MinIO
+    def upload_json(self, bucket_name: str, object_name: str, data) -> bool:
+        """
+        Salva um objeto Python (dict ou list) diretamente no MinIO,
+        sem criar arquivos locais.
+        """
+        try:
+            if not self.client.bucket_exists(bucket_name):
+                self.client.make_bucket(bucket_name)
+                print(f"Bucket '{bucket_name}' criado com sucesso.")
+
+            json_bytes = json.dumps(
+                data,
+                ensure_ascii=False,
+                indent=4
+            ).encode("utf-8")
+
+            self.client.put_object(
+                bucket_name=bucket_name,
+                object_name=object_name,
+                data=BytesIO(json_bytes),
+                length=len(json_bytes),
+                content_type="application/json",
+            )
+
+            print(f"JSON salvo em: {bucket_name}/{object_name}")
+            return True
+
+        except Exception as e:
+            print(f"Erro ao salvar JSON: {e}")
+            return False
     #_____________________________________________________________________________________________________________#
 
     # função pra buscar último arquivo salvo de buckets no minio

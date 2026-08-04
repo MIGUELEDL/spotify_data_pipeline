@@ -90,15 +90,7 @@ minio = MinioClient()
 bucket = os.getenv("BUCKET_NAME")
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# Se estiver dentro do Docker usa o caminho absoluto
-# Se estiver no notebook usa o caminho relativo
-#BASE__PATH:
-if os.path.exists("/opt/airflow"):
-    base_path = "/opt/airflow/data/raw"
-else:
-    base_path = "../data/raw"
-
-# Dicionario com chave e valor dos dados extraídos
+# Dicionário com chave e valor dos dados extraídos
 dados_para_salvar = {
     "tracks_g3": tracks_g3,
     "albums_g3": albums_g3,
@@ -107,20 +99,9 @@ dados_para_salvar = {
 # loop pra salvar os jsons brutos
 for folder_name, data in dados_para_salvar.items():
 
-    # Caminho local:
-    local_dir = os.path.join(base_path, folder_name)
-    os.makedirs(local_dir, exist_ok=True)
-    
-    # Nome do arquivo local
     file_name = f"{folder_name}_{timestamp}.json"
-    local_file_path = os.path.join(local_dir, file_name)
 
-    # Salva o JSON localmente
-    with open(local_file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-        
-    # Upload Bronze MinIO
     s3_object_name = f"bronze/{folder_name}/{file_name}"
-    
-    if minio.upload_file(bucket, s3_object_name, local_file_path):
+
+    if minio.upload_json(bucket, s3_object_name, data):
         print(f"{folder_name} salvo: {bucket}/{s3_object_name}")

@@ -32,13 +32,11 @@ x-airflow-common: &airflow-common
   volumes:
     # Pastas do projeto montadas dentro do container
     - ${AIRFLOW_DAGS}:/opt/airflow/dags
-    - ${AIRFLOW_LOGS}:/opt/airflow/logs
+    - airflow_logs:/opt/airflow/logs
     - ./scripts:/opt/airflow/scripts
     - ./utils:/opt/airflow/utils
     - ./sql:/opt/airflow/sql
     - ./data:/opt/airflow/data
-
-  user: "${AIRFLOW_UID:-50000}:0"
 
   depends_on:
     postgres:
@@ -100,14 +98,22 @@ services:
     command:
       - -c
       - |
+        # Garante que o diretório de logs exista em qualquer SO
+        mkdir -p /opt/airflow/logs
+
+        # Garante permissão de escrita para o Airflow
+        chmod -R 777 /opt/airflow/logs
+
         airflow db migrate
+
         airflow users create \
           --username ${_AIRFLOW_WWW_USER_USERNAME:-admin} \
           --password ${_AIRFLOW_WWW_USER_PASSWORD:-admin} \
           --firstname Admin \
           --lastname User \
           --role Admin \
-          --email admin@admin.com
+          --email admin@admin.com || true
+
         echo "Airflow inicializado!"
     environment:
       <<: *airflow-common-env
