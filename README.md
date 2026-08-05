@@ -95,13 +95,11 @@ Crie um arquivo `.env` na raiz do projeto e configure as variáveis abaixo de ac
 
 # APACHE AIRFLOW
 AIRFLOW_IMAGE_NAME=apache/airflow:2.9.2
-AIRFLOW_UID=50000
 _AIRFLOW_WWW_USER_USERNAME=admin
 _AIRFLOW_WWW_USER_PASSWORD=admin
 
 # Diretórios locais montados nos containers do Airflow
 AIRFLOW_DAGS=./dags
-AIRFLOW_LOGS=./data/airflow_logs
 AIRFLOW_PLUGINS=./plugins
 
 # MINIO
